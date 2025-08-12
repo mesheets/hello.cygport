@@ -1,0 +1,231 @@
+name: Cygport Packager
+
+# DESCRIPTION:
+#   Creates the packages defined by any Cygport files in the repository root.
+#
+# VERSION:      1.1.1
+# RELEASE DATE: August 11, 2025
+# AUTHOR:       Matthew Sheets
+# AUTHOR URL:   https://github.com/mesheets
+#
+# LICENSE:      GPL-3.0
+# LICENSE URL:  https://www.gnu.org/licenses/gpl-3.0.html
+#
+# NOTE: With Cygwin, multi-line values (e.g. run, path) do NOT work
+#   due to end-of-line character issues and differences.
+#   If multiple lines are useful for clarity or readability,
+#   refer to https://yaml-multiline.info/ for possible options.
+
+
+env:
+  # Workflow configuration
+  FILE_SEARCH_FILTER: "*.cygport"
+  MATRIX_OS:          '"os": [ "windows-latest" ]'
+  MATRIX_PLATFORM:    '"platform": [ "x86_64", "x86" ]'
+  REPO_SNAPSHOT_NAME: "Action.Repo.Snapshot"
+
+  # Cygwin Environment Configuration
+  
+  # Prevent the Cygwin profile script from doing an automatic `cd ${HOME}`
+  CHERE_INVOKING:   1
+  # Ensure PATH contains only Cygwin executables
+  # CAVEAT:  This doesn't really seem to work on GitHub runners
+  CYGWIN_NOWINPATH: 1
+  # Use native symlinks that Command and PowerShell can understand
+  CYGWIN:           winsymlinks:native
+
+  # Cygwin package search:  https://cygwin.com/packages/
+  # Cygwin package list:    https://cygwin.com/packages/package_list.html
+  # Cygwin-official Action: https://github.com/marketplace/actions/install-cygwin-action
+  # NOTES:
+  #   1. Avoid installing "git" under Cygwin, as this will interfere with
+  #      GitHub's version.
+  #   2. The "ruby" dependency is needed because "CYGWIN_NOWINPATH" does not
+  #      appear to fully work, and Cygport will otherwise fail as it will find
+  #      Ruby, but it is the GitHub-installed Ruby and not the Cygwin-installed Ruby.
+  #   3. Prior to Cygwin installtion, shell commands run under Git Bash.
+  CYGWIN_WORKFLOW_REQUIRES: cygport jq tree ruby
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Following POSIX cron syntax, run every Monday morning at 5:30 AM UTC
+    #   https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
+    - cron:   '30 5 * * 1'
+  push:
+    # branches: [ master ]
+  pull_request:
+    # branches: [ master ]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  compose_matrix:
+    name:     Generate the Matrix for the Main Job
+    outputs:
+      JOB_MATRIX: ${{ steps.generate_json_matrix.outputs.JOB_MATRIX }}
+
+    runs-on:  ubuntu-latest
+    
+    steps:
+    - name: Get latest from version control
+      uses: actions/checkout@v4
+
+    - name: Create the JSON for the Cygport and package matrices
+      id:   generate_json_matrix
+      if:   ${{ hashFiles(env.FILE_SEARCH_FILTER) != '' }}
+      run:  |
+        MATRIX_FILE=$(ls $FILE_SEARCH_FILTER | jq --raw-input | jq --slurp --compact-output)
+        JOB_MATRIX="{ $MATRIX_OS, $MATRIX_PLATFORM, \"file\": $MATRIX_FILE }"
+        echo "JOB_MATRIX=$JOB_MATRIX"  >>  "$GITHUB_ENV"
+        echo "JOB_MATRIX=$JOB_MATRIX"  >>  "$GITHUB_OUTPUT"
+      # jq -cn --argjson files "$(ls *.cygport | jq --raw-input | jq --slurp --compact-output)" '{file: $files}'
+
+    - name: Post repository contents as an artifact
+      if:   env.JOB_MATRIX != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.REPO_SNAPSHOT_NAME }}
+        if-no-files-found:    error
+        include-hidden-files: true
+        path: |
+          **/*
+          !.git/
+          !.github/
+          !.gitattributes
+          !.gitignore
+          !.templatesyncignore
+
+    - name: Output the generated package matrix
+      run:  |
+        if [ -n "$JOB_MATRIX" ] ; then
+          echo $JOB_MATRIX | jq --slurp .
+        else
+          echo -e "WARNING: No files matching the pattern \"$FILE_SEARCH_FILTER\" found."
+        fi
+
+
+  generate_package:
+    name:     Packaging ${{ matrix.file }} for ${{ matrix.platform }}
+    needs:    compose_matrix
+    if:       needs.compose_matrix.outputs.JOB_MATRIX != ''
+
+    strategy:
+      fail-fast:  false
+      matrix:     ${{ fromJson(needs.compose_matrix.outputs.JOB_MATRIX) }}
+
+    runs-on:      ${{ matrix.os }}
+
+    steps:
+    - name: Download the repository contents
+      uses: actions/download-artifact@v5
+      with:
+        name: ${{ env.REPO_SNAPSHOT_NAME }}
+
+      # Map property name/value pairs to environment variables
+    - name: Retrieve NAME property from Cygport file
+      run:  echo NAME="$(source "${{ matrix.file }}" && echo $NAME)"  >>  "$GITHUB_ENV"
+
+    - name: Retrieve VERSION property from Cygport file
+      run:  echo VERSION="$(source "${{ matrix.file }}" && echo $VERSION)"  >>  "$GITHUB_ENV"
+
+    - name: Retrieve RELEASE property from Cygport file
+      run:  echo RELEASE="$(source "${{ matrix.file }}" && echo $RELEASE)"  >>  "$GITHUB_ENV"
+
+    - name: Retrieve BUILD_REQUIRES property from Cygport file
+      run:  echo BUILD_REQUIRES="$(source "${{ matrix.file }}" && echo $BUILD_REQUIRES)"  >>  "$GITHUB_ENV"
+
+    - name: Retrieve PKG_NAMES property from Cygport file
+      run:  echo PKG_NAMES="$(source "${{ matrix.file }}" && echo $PKG_NAMES)"  >>  "$GITHUB_ENV"
+
+    - name: Fail job if Cygport file is missing needed properties
+      if:   (env.NAME == '') || (env.VERSION == '') || (env.RELEASE == '')
+      run:  echo -e "File \"${{ matrix.file }}\" must include NAME, VERSION, and RELEASE properties" && exit 1
+
+    - name: If a multi-package, check if the main package is included
+      run:  echo INCLUDES_MAIN_PACKAGE="$(if [ -z "$PKG_NAMES" -o -n "$(grep --only-matching --word-regexp "$NAME" <<< "$PKG_NAMES" )" ] ; then echo "true"; else echo "false"; fi)"  >>  "$GITHUB_ENV"
+
+    - name: Report properties discovered in Cygport file
+      run:  echo -e "Found Cygport file \"${{ matrix.file }}\" for $NAME-$VERSION-$RELEASE with$(if ! $INCLUDES_MAIN_PACKAGE ; then echo "out"; fi) main package and with$(if [ -z "$PKG_NAMES" ] ; then echo "out"; fi) multi-package configuration."
+
+
+      # Determine specific path and filename values
+    - name: Determine the platform-appropriate path string
+      run:  echo MATRIX_PLATFORM_PATH_STRING="${{ matrix.platform == 'x86' && 'i686' || matrix.platform }}" >> "$GITHUB_ENV"
+
+    - name: Determine the platform-appropriate file string
+      if:   matrix.platform != 'x86'
+      run:  echo MATRIX_PLATFORM_FILE_STRING="-${{ matrix.platform }}" >> "$GITHUB_ENV"
+
+    - name: Define the package files path
+      run:  echo PACKAGE_FILES_PATH="$NAME-$VERSION-$RELEASE.$MATRIX_PLATFORM_PATH_STRING/dist/$NAME" >> "$GITHUB_ENV"
+
+    - name: Define the name of the source package and hint file
+      run:  echo PACKAGE_SRC_FILES="$NAME-$VERSION-$RELEASE-src.*" >> "$GITHUB_ENV"
+
+    - name: Define the name of the binary package and hint file
+      run:  echo PACKAGE_MAINBIN_FILES="$NAME-$VERSION-$RELEASE$MATRIX_PLATFORM_FILE_STRING.*" >> "$GITHUB_ENV"
+
+    - name: Define the name of any multi-binary packages and hint files
+      run:  echo PACKAGE_MULTIBIN_FILES="*/*-$VERSION-$RELEASE$MATRIX_PLATFORM_FILE_STRING.*" >> "$GITHUB_ENV"
+
+
+      # Cygwin action docs – https://github.com/marketplace/actions/install-cygwin-action
+    - name: Setup Cygwin Environment
+      uses: cygwin/cygwin-install-action@v5
+      with:
+        platform: ${{ matrix.platform }}
+        packages: ${{ env.CYGWIN_WORKFLOW_REQUIRES }} ${{ env.BUILD_REQUIRES }}
+
+
+      # Run the Cygport steps
+    - name: Download the source archive
+      run:  cygport "${{ matrix.file }}" download
+
+    - name: Prepare the source code
+      run:  cygport "${{ matrix.file }}" prep
+
+    - name: Compile the source code
+      run:  cygport "${{ matrix.file }}" compile
+
+    - name: Install the built code to a DestDir
+      run:  cygport "${{ matrix.file }}" install
+
+    - name: Package the build
+      run:  cygport "${{ matrix.file }}" package
+
+    - name: List “dist” directory contents
+      run:  tree --dirsfirst "$PACKAGE_FILES_PATH"
+
+
+      # Archive the generated files as artifacts
+    - name: Archive source package files
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.file }}-${{ matrix.os }}-${{ matrix.platform }}-src_${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
+        path: ${{ env.PACKAGE_FILES_PATH }}/${{ env.PACKAGE_SRC_FILES }}
+        if-no-files-found: error
+        # The artifacts are already compressed, so further compression is superfluous
+        compression-level: 0
+
+    - name: Archive main binary package files
+      if:   env.INCLUDES_MAIN_PACKAGE != 'false'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.file }}-${{ matrix.os }}-${{ matrix.platform }}-mainbin_${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
+        path: ${{ env.PACKAGE_FILES_PATH }}/${{ env.PACKAGE_MAINBIN_FILES }}
+        if-no-files-found: error
+        # The artifacts are already compressed, so further compression is superfluous
+        compression-level: 0
+
+    - name: Archive any additional binary package files
+      if:   env.PKG_NAMES != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.file }}-${{ matrix.os }}-${{ matrix.platform }}-multibin_${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
+        path: ${{ env.PACKAGE_FILES_PATH }}/${{ env.PACKAGE_MULTIBIN_FILES }}
+        if-no-files-found: error
+        # The artifacts are already compressed, so further compression is superfluous
+        compression-level: 0
