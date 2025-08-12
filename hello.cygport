@@ -6,13 +6,13 @@ RELEASE=1
 
 # Package Metadata
 CATEGORY="Devel Utils"
-SUMMARY="An example Cygport package based on GNU hello"
-DESCRIPTION="The GNU hello program produces a familiar, friendly greeting.
+SUMMARY="An example Cygport package based on GNU Hello"
+DESCRIPTION="The GNU Hello program produces a familiar, friendly greeting.
 It allows non-programmers to use a classic computer science tool which would
 otherwise be unavailable to them.
 
 Seriously, though: this is an example of doing a basic Cygwin Cygport package.
-It is the Cygwin version of the GNU Project’s “hello world” program
+It is the Cygwin version of the GNU Project’s “Hello, world!” program
 (which is itself an example for the GNU Project)."
 PROJECT="${NAME}"
 HOMEPAGE="https://www.gnu.org/software/${PROJECT}"
