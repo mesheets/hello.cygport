@@ -1,10 +1,11 @@
 GNU Hello Cygwin Cygport Package
 ================================
-An example Cygwin Cygport package based on GNU hello.
+An example Cygwin Cygport package based on
+[GNU Hello](https://www.gnu.org/software/hello/).
 
 About GNU Hello
 ---------------
-The GNU hello program produces a familiar, friendly greeting.
+The GNU Hello program produces a familiar, friendly greeting.
 It allows non-programmers to use a classic computer science tool which would
 otherwise be unavailable to them.
 
