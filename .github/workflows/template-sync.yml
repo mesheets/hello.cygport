@@ -1,0 +1,79 @@
+name: Template Synchronizer
+
+# DESCRIPTION:
+#   For respositories created from a template, this provides an automated
+#   mechanism for applying updates that have been made to the source template.
+#   Any detected changes are staged as pull requests.
+#
+#   This workflow was adapted by Matthew Sheets
+#   from AndreasAugustin/actions-template-sync:
+#   - https://github.com/marketplace/actions/actions-template-sync
+#   - https://github.com/AndreasAugustin/actions-template-sync
+#
+# VERSION:      1.1.1
+# RELEASE DATE: August 11, 2025
+# AUTHOR:       Matthew Sheets
+# AUTHOR URL:   https://github.com/mesheets
+#
+# LICENSE:      MIT
+# LICENSE URLs:
+#   - https://opensource.org/license/mit
+#   - https://tlo.mit.edu/understand-ip/exploring-mit-open-source-license-comprehensive-guide
+#
+
+
+on:
+  # Enable manual triggering
+  workflow_dispatch:
+
+  # Run on a schedule (cronjob)
+  # Following POSIX cron syntax, run every Saturday at Noon (12:00 PM) UTC
+  #   https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
+  schedule:
+    - cron: "0 12 * * 6"
+
+env:
+  AUTHORIZED_TOKEN: ${{ secrets.CYGPORT_TEMPLATE_SYNC_TOKEN }}
+
+jobs:
+  is-token-defined:
+    runs-on:  ubuntu-latest
+    steps:
+      - name: Check for Token
+        id:   check-for-token
+        if:   env.AUTHORIZED_TOKEN != ''
+        run:  echo "TOKEN_FOUND=true"  >>  "$GITHUB_OUTPUT"
+    outputs:
+      TOKEN_FOUND: ${{ steps.check-for-token.outputs.TOKEN_FOUND }}
+
+  repo-sync:
+    needs:   is-token-defined
+    if:      needs.is-token-defined.outputs.TOKEN_FOUND != ''
+    runs-on: ubuntu-latest
+
+    # https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
+    permissions:
+      contents:      write
+      pull-requests: write
+
+    steps:
+      # To use this repository's private action, you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # https://github.com/actions/checkout#usage
+          # uncomment if you use submodules within the repository
+          # submodules: true
+
+      - name: actions-template-sync
+        uses: AndreasAugustin/actions-template-sync@v2
+        with:
+          source_gh_token: ${{ secrets.GITHUB_TOKEN }}
+          target_gh_token:  ${{ secrets.CYGPORT_TEMPLATE_SYNC_TOKEN }}
+          source_repo_path: mesheets/Cygport-Workflow-Template
+          # upstream_branch: <target_branch> # defaults to main
+          # pr_labels: <label1>,<label2>[,...] # defaults to template_sync
+          is_pr_cleanup:    true
+
+

@@ -1,0 +1,13 @@
+# Executable files
+*.exe
+*.dll
+
+# Archive files
+*.7z
+*.bz2
+*.rar
+*.tar
+*.tar.gz
+*.tar.xz
+*.tgz
+*.zip
