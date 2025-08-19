@@ -5,7 +5,7 @@ VERSION=2.12.2
 RELEASE=1
 
 # Package Metadata
-CATEGORY="Devel Utils"
+CATEGORY="Devel"
 SUMMARY="An example Cygport package based on GNU Hello"
 DESCRIPTION="The GNU Hello program produces a familiar, friendly greeting.
 It allows non-programmers to use a classic computer science tool which would
