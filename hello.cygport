@@ -1,3 +1,6 @@
+# Cygport Reference Manual
+# - https://cygwin.github.io/cygport/toc_index.html
+
 # Package Identification
 # Historically: NAME, VERSION, and RELEASE are read-only once set
 NAME="hello"
@@ -14,23 +17,30 @@ otherwise be unavailable to them.
 Seriously, though: this is an example of doing a basic Cygwin Cygport package.
 It is the Cygwin version of the GNU Project’s “Hello, world!” program
 (which is itself an example for the GNU Project)."
-PROJECT="${NAME}"
-HOMEPAGE="https://www.gnu.org/software/${PROJECT}"
 
-# License ID list at https://spdx.org/licenses/
+# Global Variable reference (e.g., S, B, P, PN):
+# - https://cygwin.github.io/cygport/syntax_cygpart.html#Globals
+HOMEPAGE="https://www.gnu.org/software/${PN}"
+
+# List of recognized license IDs:
+# - https://spdx.org/licenses/
 LICENSE="GPL-3.0+"
 
-# File Locations
-SRC_URI="https://ftpmirror.gnu.org/${PROJECT}/${PROJECT}-${VERSION}.tar.gz"
-SRC_DIR="${PROJECT}-${VERSION}"
+# Set the download URI;  see link below for mirror notation reference:
+# - https://cygwin.github.io/cygport/mirrors.html#Mirrors
+SRC_URI="mirror://gnu/${PN}/${P}.tar.gz"
+
+# Declare the naming convention of the top-level folder within the source archive:
+# - https://cygwin.github.io/cygport/src_prep_cygpart.html#SRC_DIR
+SRC_DIR="${P}"
 
 
 # Build Setup
-BUILD_REQUIRES="lndir autoconf automake m4 make binutils gcc-core
+BUILD_REQUIRES="autoconf automake m4 make binutils gcc-core
 gettext-devel texinfo help2man"
 
-# Ignore any changes under the source directory made during compilation
-# https://cygwin.github.io/cygport/src_postinst_cygpart.html#RESTRICT
+# Ignore any changes under the source directory made during compilation (optional)
+# - https://cygwin.github.io/cygport/src_postinst_cygpart.html#RESTRICT
 RESTRICT="diff"
 
 
