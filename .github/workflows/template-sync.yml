@@ -59,7 +59,7 @@ jobs:
     steps:
       # To use this repository's private action, you must check out the repository
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           # https://github.com/actions/checkout#usage
@@ -75,5 +75,6 @@ jobs:
           # upstream_branch: <target_branch> # defaults to main
           # pr_labels: <label1>,<label2>[,...] # defaults to template_sync
           is_pr_cleanup:    true
+
 
 

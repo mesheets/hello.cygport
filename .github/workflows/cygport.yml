@@ -71,7 +71,7 @@ jobs:
     
     steps:
     - name: Get latest from version control
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Create the JSON for the Cygport and package matrices
       id:   generate_json_matrix
@@ -85,7 +85,7 @@ jobs:
 
     - name: Post repository contents as an artifact
       if:   env.JOB_MATRIX != ''
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ env.REPO_SNAPSHOT_NAME }}
         if-no-files-found:    error
@@ -120,7 +120,7 @@ jobs:
 
     steps:
     - name: Download the repository contents
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v7
       with:
         name: ${{ env.REPO_SNAPSHOT_NAME }}
 
@@ -174,7 +174,7 @@ jobs:
 
       # Cygwin action docs – https://github.com/marketplace/actions/install-cygwin-action
     - name: Setup Cygwin Environment
-      uses: cygwin/cygwin-install-action@v5
+      uses: cygwin/cygwin-install-action@v6
       with:
         platform: ${{ matrix.platform }}
         packages: ${{ env.CYGWIN_WORKFLOW_REQUIRES }} ${{ env.BUILD_REQUIRES }}
@@ -202,7 +202,7 @@ jobs:
 
       # Archive the generated files as artifacts
     - name: Archive source package files
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ matrix.file }}-${{ matrix.os }}-${{ matrix.platform }}-src_${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         path: ${{ env.PACKAGE_FILES_PATH }}/${{ env.PACKAGE_SRC_FILES }}
@@ -212,7 +212,7 @@ jobs:
 
     - name: Archive main binary package files
       if:   env.INCLUDES_MAIN_PACKAGE != 'false'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ matrix.file }}-${{ matrix.os }}-${{ matrix.platform }}-mainbin_${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         path: ${{ env.PACKAGE_FILES_PATH }}/${{ env.PACKAGE_MAINBIN_FILES }}
@@ -222,7 +222,7 @@ jobs:
 
     - name: Archive any additional binary package files
       if:   env.PKG_NAMES != ''
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ matrix.file }}-${{ matrix.os }}-${{ matrix.platform }}-multibin_${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         path: ${{ env.PACKAGE_FILES_PATH }}/${{ env.PACKAGE_MULTIBIN_FILES }}
